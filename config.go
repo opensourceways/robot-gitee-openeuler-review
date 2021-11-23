@@ -84,6 +84,9 @@ type botConfig struct {
 	// MergeMethod is the method to merge PR.
 	// The default method of merge. Valid options are squash and merge.
 	MergeMethod pullRequestMergeMethod `json:"merge_method,omitempty"`
+
+	// EnableCheckPrReviewer opens to check whether the reviewer is specified when the PR is created.
+	EnableCheckPrReviewer bool `json:"enable_check_pr_reviewer,omitempty"`
 }
 
 func (c *botConfig) setDefault() {
