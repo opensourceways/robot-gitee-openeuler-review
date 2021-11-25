@@ -15,6 +15,7 @@ const (
 	msgMissingLabels      = "PR does not have these lables: %s"
 	msgInvalidLabels      = "PR should remove these labels: %s"
 	msgNotEnoughLGTMLabel = "PR needs %d lgtm labels and now gets %d"
+	msgForzenWithOwner    = "PR merge target has been frozen, and can merge only by branch owners: %s"
 )
 
 var regCheckPr = regexp.MustCompile(`(?mi)^/check-pr\s*$`)
@@ -32,7 +33,10 @@ func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig) error {
 	pr := ne.PullRequest
 	org, repo := ne.GetOrgRep()
 
-	if r := canMerge(pr.Mergeable, ne.GetPRLabels(), cfg); len(r) > 0 {
+	r, err := bot.canMerge(pr.Mergeable, ne.GetCommenter(), ne.GetPRInfo(), cfg)
+	if err != nil {
+		return err
+	} else if len(r) > 0 {
 		return bot.cli.CreatePRComment(
 			org, repo, ne.GetPRNumber(),
 			fmt.Sprintf(
@@ -56,7 +60,10 @@ func (bot *robot) tryMerge(e *sdk.PullRequestEvent, cfg *botConfig) error {
 	pr := e.PullRequest
 	info := giteeclient.GetPRInfoByPREvent(e)
 
-	if r := canMerge(pr.Mergeable, info.Labels, cfg); len(r) > 0 {
+	r, err := bot.canMerge(pr.Mergeable, e.Author.Name, info, cfg)
+	if err != nil {
+		return err
+	} else if len(r) > 0 {
 		return nil
 	}
 
@@ -86,9 +93,12 @@ func (bot *robot) mergePR(needReviewOrTest bool, org, repo string, number int32,
 	)
 }
 
-func canMerge(mergeable bool, labels sets.String, cfg *botConfig) []string {
+func (bot *robot) canMerge(
+	mergeable bool, owner string,
+	pr giteeclient.PRInfo, cfg *botConfig,
+) ([]string, error) {
 	if !mergeable {
-		return []string{msgPRConflicts}
+		return []string{msgPRConflicts}, nil
 	}
 
 	reasons := []string{}
@@ -99,13 +109,13 @@ func canMerge(mergeable bool, labels sets.String, cfg *botConfig) []string {
 	if ln := cfg.LgtmCountsRequired; ln == 1 {
 		needs.Insert(lgtmLabel)
 	} else {
-		v := getLGTMLabelsOnPR(labels)
+		v := getLGTMLabelsOnPR(pr.Labels)
 		if n := uint(len(v)); n < ln {
 			reasons = append(reasons, fmt.Sprintf(msgNotEnoughLGTMLabel, ln, n))
 		}
 	}
 
-	if v := needs.Difference(labels); v.Len() > 0 {
+	if v := needs.Difference(pr.Labels); v.Len() > 0 {
 		reasons = append(reasons, fmt.Sprintf(
 			msgMissingLabels, strings.Join(v.UnsortedList(), ", "),
 		))
@@ -113,12 +123,23 @@ func canMerge(mergeable bool, labels sets.String, cfg *botConfig) []string {
 
 	if len(cfg.MissingLabelsForMerge) > 0 {
 		missing := sets.NewString(cfg.MissingLabelsForMerge...)
-		if v := missing.Intersection(labels); v.Len() > 0 {
+		if v := missing.Intersection(pr.Labels); v.Len() > 0 {
 			reasons = append(reasons, fmt.Sprintf(
 				msgInvalidLabels, strings.Join(v.UnsortedList(), ", "),
 			))
 		}
 	}
 
-	return reasons
+	freeze, err := bot.getFreezeInfo(pr.Org, pr.BaseRef, cfg.FreezeFile)
+	if err != nil {
+		return reasons, err
+	}
+
+	if freeze.isFrozen(pr.Org, pr.BaseRef, owner) {
+		reasons = append(reasons, fmt.Sprintf(
+			msgForzenWithOwner, strings.Join(freeze.Owner, ", "),
+		))
+	}
+
+	return reasons, nil
 }
