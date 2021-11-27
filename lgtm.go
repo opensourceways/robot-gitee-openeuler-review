@@ -100,6 +100,7 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 	if v := getLGTMLabelsOnPR(pr.Labels); len(v) > 0 {
 		return bot.cli.RemovePRLabels(org, repo, number, v)
 	}
+
 	return nil
 }
 
@@ -135,6 +136,7 @@ func (bot *robot) clearLabel(e *sdk.PullRequestEvent) error {
 			fmt.Sprintf(commentClearLabel, strings.Join(v, ", ")),
 		)
 	}
+
 	return nil
 }
 
@@ -147,6 +149,7 @@ func genLGTMLabel(commenter string, lgtmCount uint) string {
 	if len(l) > labelLenLimit {
 		return l[:labelLenLimit]
 	}
+
 	return l
 }
 
@@ -157,5 +160,6 @@ func getLGTMLabelsOnPR(labels sets.String) []string {
 			r = append(r, l)
 		}
 	}
+
 	return r
 }

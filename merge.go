@@ -15,7 +15,7 @@ const (
 	msgMissingLabels      = "PR does not have these lables: %s"
 	msgInvalidLabels      = "PR should remove these labels: %s"
 	msgNotEnoughLGTMLabel = "PR needs %d lgtm labels and now gets %d"
-	msgForzenWithOwner    = "PR merge target has been frozen, and can merge only by branch owners: %s"
+	msgFrozenWithOwner    = "PR merge target has been frozen, and can merge only by branch owners: %s"
 )
 
 var regCheckPr = regexp.MustCompile(`(?mi)^/check-pr\s*$`)
@@ -33,8 +33,7 @@ func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig) error {
 	pr := ne.PullRequest
 	org, repo := ne.GetOrgRep()
 
-	r, err := bot.canMerge(pr.Mergeable, ne.GetCommenter(), ne.GetPRInfo(), cfg)
-	if err != nil {
+	if r, err := bot.canMerge(pr.Mergeable, ne.GetCommenter(), ne.GetPRInfo(), cfg); err != nil {
 		return err
 	} else if len(r) > 0 {
 		return bot.cli.CreatePRComment(
@@ -60,11 +59,8 @@ func (bot *robot) tryMerge(e *sdk.PullRequestEvent, cfg *botConfig) error {
 	pr := e.PullRequest
 	info := giteeclient.GetPRInfoByPREvent(e)
 
-	r, err := bot.canMerge(pr.Mergeable, e.Author.Name, info, cfg)
-	if err != nil {
+	if r, err := bot.canMerge(pr.Mergeable, e.Author.Name, info, cfg); err != nil || len(r) > 0 {
 		return err
-	} else if len(r) > 0 {
-		return nil
 	}
 
 	return bot.mergePR(
@@ -94,14 +90,16 @@ func (bot *robot) mergePR(needReviewOrTest bool, org, repo string, number int32,
 }
 
 func (bot *robot) canMerge(
-	mergeable bool, owner string,
-	pr giteeclient.PRInfo, cfg *botConfig,
+	mergeable bool,
+	owner string,
+	pr giteeclient.PRInfo,
+	cfg *botConfig,
 ) ([]string, error) {
 	if !mergeable {
 		return []string{msgPRConflicts}, nil
 	}
 
-	reasons := []string{}
+	var reasons []string
 
 	needs := sets.NewString(approvedLabel)
 	needs.Insert(cfg.LabelsForMerge...)
@@ -137,7 +135,7 @@ func (bot *robot) canMerge(
 
 	if freeze.isFrozen(pr.Org, pr.BaseRef, owner) {
 		reasons = append(reasons, fmt.Sprintf(
-			msgForzenWithOwner, strings.Join(freeze.Owner, ", "),
+			msgFrozenWithOwner, strings.Join(freeze.Owner, ", "),
 		))
 	}
 

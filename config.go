@@ -34,6 +34,7 @@ func (c *configuration) configFor(org, repo string) *botConfig {
 	if i := libconfig.FindConfig(org, repo, v); i >= 0 {
 		return &items[i]
 	}
+
 	return nil
 }
 

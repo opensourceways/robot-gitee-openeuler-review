@@ -56,19 +56,18 @@ func (fi freezeItem) hasOwner(owner string) bool {
 }
 
 func (bot *robot) getFreezeInfo(org, branch string, cfg []freezeFile) (freezeItem, error) {
-	var fi freezeItem
 	for _, v := range cfg {
 		fc, err := bot.getFreezeContent(v)
 		if err != nil {
-			return fi, err
+			return freezeItem{}, err
 		}
 
 		if v := fc.getFreezeItem(org, branch); v != nil {
-			fi = *v
+			return *v, nil
 		}
 	}
 
-	return fi, nil
+	return freezeItem{}, nil
 }
 
 func (bot *robot) getFreezeContent(f freezeFile) (freezeContent, error) {
@@ -84,5 +83,6 @@ func (bot *robot) getFreezeContent(f freezeFile) (freezeContent, error) {
 	}
 
 	err = yaml.Unmarshal(b, &fc)
+
 	return fc, err
 }
