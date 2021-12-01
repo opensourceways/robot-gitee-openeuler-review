@@ -60,7 +60,7 @@ config_items:
       - TC
     # merge_method is the method to merge PR.The default method of merge. valid options are squash and merge.
     merge_method: merge
-    enable_check_pr_reviewer: true #Whether to check the reviewer
+    unable_checking_reviewer_for_pr: true #Whether to check the reviewer
 ```
 
 

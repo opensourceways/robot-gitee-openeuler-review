@@ -58,6 +58,6 @@ config_items:
        - community
        - TC
      merge_method: merge #PR合入时使用的方式，可选项：merge、squash.默认merge.
-     enable_check_pr_reviewer: true #是否检查审核人
+     unable_checking_reviewer_for_pr: true #是否检查审核人
 ```
 
