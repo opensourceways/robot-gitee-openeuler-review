@@ -75,6 +75,7 @@ func (bot *robot) isOwnerOfSig(
 		if !cfg.regSigDir.MatchString(file.Filename) {
 			return false, nil
 		}
+
 		pathes.Insert(filepath.Dir(file.Filename))
 	}
 

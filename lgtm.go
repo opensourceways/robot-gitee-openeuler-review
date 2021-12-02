@@ -72,7 +72,16 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 		}
 	}
 
-	return bot.cli.AddPRLabel(org, repo, number, label)
+	if err := bot.cli.AddPRLabel(org, repo, number, label); err != nil {
+		return err
+	}
+
+	freeze, err := bot.getFreezeInfo(org, pr.BaseRef, cfg.FreezeFile)
+	if err != nil || !freeze.isFrozen() {
+		return err
+	}
+
+	return bot.tryMerge(org, repo, e.GetPullRequest(), cfg, freeze.frozenForOwner(commenter))
 }
 
 func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {
@@ -155,6 +164,7 @@ func genLGTMLabel(commenter string, lgtmCount uint) string {
 
 func getLGTMLabelsOnPR(labels sets.String) []string {
 	var r []string
+
 	for l := range labels {
 		if strings.HasPrefix(l, lgtmLabel) {
 			r = append(r, l)

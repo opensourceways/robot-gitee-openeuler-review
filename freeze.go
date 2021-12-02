@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/base64"
+	"fmt"
+	"strings"
 
 	"sigs.k8s.io/yaml"
 )
@@ -27,12 +29,8 @@ type freezeItem struct {
 	Owner     []string `json:"owner"`
 }
 
-func (fi freezeItem) isFrozen(org, branch, owner string) bool {
-	if branch != fi.Branch {
-		return false
-	}
-
-	return fi.hasOrg(org) && fi.hasOwner(owner)
+func (fi freezeItem) isFrozen() bool {
+	return fi.Frozen
 }
 
 func (fi freezeItem) hasOrg(org string) bool {
@@ -45,14 +43,28 @@ func (fi freezeItem) hasOrg(org string) bool {
 	return false
 }
 
-func (fi freezeItem) hasOwner(owner string) bool {
+func (fi freezeItem) isFrozenForOwner(owner string) bool {
 	for _, v := range fi.Owner {
 		if v == owner {
-			return true
+			return false
 		}
 	}
 
-	return false
+	return true
+}
+
+func (fi freezeItem) frozenForOwner(owner string) func() string {
+	return func() string {
+		if owner == "" && !fi.isFrozen() {
+			return ""
+		}
+
+		if owner != "" && !fi.isFrozenForOwner(owner) {
+			return ""
+		}
+
+		return fmt.Sprintf(msgFrozenWithOwner, strings.Join(fi.Owner, ", "))
+	}
 }
 
 func (bot *robot) getFreezeInfo(org, branch string, cfg []freezeFile) (freezeItem, error) {
@@ -72,6 +84,7 @@ func (bot *robot) getFreezeInfo(org, branch string, cfg []freezeFile) (freezeIte
 
 func (bot *robot) getFreezeContent(f freezeFile) (freezeContent, error) {
 	var fc freezeContent
+
 	c, err := bot.cli.GetPathContent(f.Owner, f.Repo, f.Branch, f.Path)
 	if err != nil {
 		return fc, err

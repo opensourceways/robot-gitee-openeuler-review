@@ -30,12 +30,15 @@ func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig) error {
 		return nil
 	}
 
-	pr := ne.PullRequest
 	org, repo := ne.GetOrgRep()
+	pr := e.GetPullRequest()
 
-	if r, err := bot.canMerge(pr.Mergeable, ne.GetCommenter(), ne.GetPRInfo(), cfg); err != nil {
+	freeze, err := bot.getFreezeInfo(org, pr.GetBase().GetRef(), cfg.FreezeFile)
+	if err != nil {
 		return err
-	} else if len(r) > 0 {
+	}
+
+	if r := canMerge(pr.Mergeable, ne.GetPRLabels(), cfg, freeze.frozenForOwner(ne.GetCommenter())); len(r) > 0 {
 		return bot.cli.CreatePRComment(
 			org, repo, ne.GetPRNumber(),
 			fmt.Sprintf(
@@ -47,25 +50,34 @@ func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig) error {
 
 	return bot.mergePR(
 		pr.NeedReview || pr.NeedTest,
-		org, repo, ne.GetPRNumber(), string(cfg.MergeMethod),
+		org, repo, pr.Number, string(cfg.MergeMethod),
 	)
 }
 
-func (bot *robot) tryMerge(e *sdk.PullRequestEvent, cfg *botConfig) error {
+func (bot *robot) handleLabelUpdate(e *sdk.PullRequestEvent, cfg *botConfig) error {
 	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionUpdatedLabel {
 		return nil
 	}
 
-	pr := e.PullRequest
-	info := giteeclient.GetPRInfoByPREvent(e)
+	org, repo := giteeclient.GetOwnerAndRepoByPREvent(e)
+	pr := e.GetPullRequest()
 
-	if r, err := bot.canMerge(pr.Mergeable, e.Author.Name, info, cfg); err != nil || len(r) > 0 {
+	freeze, err := bot.getFreezeInfo(org, pr.GetBase().GetRef(), cfg.FreezeFile)
+	if err != nil {
 		return err
+	}
+
+	return bot.tryMerge(org, repo, pr, cfg, freeze.frozenForOwner(""))
+}
+
+func (bot *robot) tryMerge(org, repo string, pr *sdk.PullRequestHook, cfg *botConfig, isFreeze func() string) error {
+	if r := canMerge(pr.Mergeable, nil, cfg, isFreeze); len(r) > 0 {
+		return nil
 	}
 
 	return bot.mergePR(
 		pr.NeedReview || pr.NeedTest,
-		info.Org, info.Repo, info.Number, string(cfg.MergeMethod),
+		org, repo, pr.Number, string(cfg.MergeMethod),
 	)
 }
 
@@ -76,6 +88,7 @@ func (bot *robot) mergePR(needReviewOrTest bool, org, repo string, number int32,
 			AssigneesNumber: &v,
 			TestersNumber:   &v,
 		}
+
 		if _, err := bot.cli.UpdatePullRequest(org, repo, number, p); err != nil {
 			return err
 		}
@@ -89,16 +102,25 @@ func (bot *robot) mergePR(needReviewOrTest bool, org, repo string, number int32,
 	)
 }
 
-func (bot *robot) canMerge(
-	mergeable bool,
-	owner string,
-	pr giteeclient.PRInfo,
-	cfg *botConfig,
-) ([]string, error) {
+func canMerge(mergeable bool, labels sets.String, cfg *botConfig, isFreeze func() string) []string {
+	var reasons []string
+
 	if !mergeable {
-		return []string{msgPRConflicts}, nil
+		reasons = append(reasons, msgPRConflicts)
 	}
 
+	if r := isLabelMatched(labels, cfg); len(r) > 0 {
+		reasons = append(reasons, r...)
+	}
+
+	if r := isFreeze(); r != "" {
+		reasons = append(reasons, r)
+	}
+
+	return reasons
+}
+
+func isLabelMatched(labels sets.String, cfg *botConfig) []string {
 	var reasons []string
 
 	needs := sets.NewString(approvedLabel)
@@ -107,13 +129,13 @@ func (bot *robot) canMerge(
 	if ln := cfg.LgtmCountsRequired; ln == 1 {
 		needs.Insert(lgtmLabel)
 	} else {
-		v := getLGTMLabelsOnPR(pr.Labels)
+		v := getLGTMLabelsOnPR(labels)
 		if n := uint(len(v)); n < ln {
 			reasons = append(reasons, fmt.Sprintf(msgNotEnoughLGTMLabel, ln, n))
 		}
 	}
 
-	if v := needs.Difference(pr.Labels); v.Len() > 0 {
+	if v := needs.Difference(labels); v.Len() > 0 {
 		reasons = append(reasons, fmt.Sprintf(
 			msgMissingLabels, strings.Join(v.UnsortedList(), ", "),
 		))
@@ -121,23 +143,12 @@ func (bot *robot) canMerge(
 
 	if len(cfg.MissingLabelsForMerge) > 0 {
 		missing := sets.NewString(cfg.MissingLabelsForMerge...)
-		if v := missing.Intersection(pr.Labels); v.Len() > 0 {
+		if v := missing.Intersection(labels); v.Len() > 0 {
 			reasons = append(reasons, fmt.Sprintf(
 				msgInvalidLabels, strings.Join(v.UnsortedList(), ", "),
 			))
 		}
 	}
 
-	freeze, err := bot.getFreezeInfo(pr.Org, pr.BaseRef, cfg.FreezeFile)
-	if err != nil {
-		return reasons, err
-	}
-
-	if freeze.isFrozen(pr.Org, pr.BaseRef, owner) {
-		reasons = append(reasons, fmt.Sprintf(
-			msgFrozenWithOwner, strings.Join(freeze.Owner, ", "),
-		))
-	}
-
-	return reasons, nil
+	return reasons
 }

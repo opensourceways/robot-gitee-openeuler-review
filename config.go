@@ -150,9 +150,11 @@ func (f freezeFile) validate() error {
 	if f.Owner == "" {
 		return fmt.Errorf("the owner configuration item of freeze file can not empty")
 	}
+
 	if f.Repo == "" {
 		return fmt.Errorf("the repo configuration item of freeze file can not empty")
 	}
+
 	if f.Path == "" {
 		return fmt.Errorf("the path configuration item of freeze file can not empty")
 	}
