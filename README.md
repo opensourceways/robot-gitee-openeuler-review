@@ -54,10 +54,10 @@ config_items:
       - ci-pipline-success
     missing_labels_for_merge: #labels that cannot exist when PR is merged in
       - ci-pipline-failed
-     #specify the repository that needs to additionally check the user rights of the command against the sig group configuration
-    repos_of_sig: 
-      - community
-      - TC
+    # specify it should check the devepler's permission besed on the owners file in sig directory when the developer comment /lgtm or /approve command.
+    check_permission_based_on_sig_owners: true
+    # is the directory of Sig. It must be set when CheckPermissionBasedOnSigOwners is true.
+    sigs_dir: sig
     # merge_method is the method to merge PR.The default method of merge. valid options are squash and merge.
     merge_method: merge
     unable_checking_reviewer_for_pr: true #Whether to check the reviewer

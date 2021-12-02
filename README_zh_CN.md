@@ -52,11 +52,12 @@ config_items:
     lgtm_counts_required: 1 #lgtm标签阈值
     labels_for_merge: #PR合入需要的标签
       - ci-pipline-success
-     missing_labels_for_merge: #PR合入时不能存在的标签
+    missing_labels_for_merge: #PR合入时不能存在的标签
       - ci-pipline-failed
-     repos_of_sig: #指定需额外根据sig组配置检查指令使用者权限的仓库
-       - community
-       - TC
+    # 指定在开发者评论/lgtm 或/approve 命令时根据sig 目录下的owners 文件检查开发者的权限。
+    check_permission_based_on_sig_owners: true
+    # Sig 的目录。当 CheckPermissionBasedOnSigOwners 为真时必须设置它。
+    sigs_dir: sig
      merge_method: merge #PR合入时使用的方式，可选项：merge、squash.默认merge.
      unable_checking_reviewer_for_pr: true #是否检查审核人
 ```
