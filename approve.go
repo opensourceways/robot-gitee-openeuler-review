@@ -58,7 +58,7 @@ func (bot *robot) AddApprove(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 		return err
 	}
 
-	return bot.tryMerge(pr.Org, pr.Repo, e.GetPullRequest(), cfg, freeze.frozenForOwner(commenter))
+	return bot.tryMerge(pr.Org, pr.Repo, e.GetPullRequest(), cfg, freeze.getFrozenMsg(commenter))
 }
 
 func (bot *robot) removeApprove(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {

@@ -38,7 +38,7 @@ func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig) error {
 		return err
 	}
 
-	if r := canMerge(pr.Mergeable, ne.GetPRLabels(), cfg, freeze.frozenForOwner(ne.GetCommenter())); len(r) > 0 {
+	if r := canMerge(pr.Mergeable, ne.GetPRLabels(), cfg, freeze.getFrozenMsg(ne.GetCommenter())); len(r) > 0 {
 		return bot.cli.CreatePRComment(
 			org, repo, ne.GetPRNumber(),
 			fmt.Sprintf(
@@ -67,7 +67,7 @@ func (bot *robot) handleLabelUpdate(e *sdk.PullRequestEvent, cfg *botConfig) err
 		return err
 	}
 
-	return bot.tryMerge(org, repo, pr, cfg, freeze.frozenForOwner(""))
+	return bot.tryMerge(org, repo, pr, cfg, freeze.getFrozenMsg())
 }
 
 func (bot *robot) tryMerge(org, repo string, pr *sdk.PullRequestHook, cfg *botConfig, isFreeze func() string) error {

@@ -81,7 +81,7 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 		return err
 	}
 
-	return bot.tryMerge(org, repo, e.GetPullRequest(), cfg, freeze.frozenForOwner(commenter))
+	return bot.tryMerge(org, repo, e.GetPullRequest(), cfg, freeze.getFrozenMsg(commenter))
 }
 
 func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {

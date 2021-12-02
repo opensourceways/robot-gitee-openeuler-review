@@ -50,16 +50,16 @@ func (fi freezeItem) isFrozenForOwner(owner string) bool {
 		}
 	}
 
-	return true
+	return fi.isFrozen()
 }
 
-func (fi freezeItem) frozenForOwner(owner string) func() string {
+func (fi freezeItem) getFrozenMsg(owner ...string) func() string {
 	return func() string {
-		if owner == "" && !fi.isFrozen() {
+		if len(owner) == 0 && !fi.isFrozen() {
 			return ""
 		}
 
-		if owner != "" && !fi.isFrozenForOwner(owner) {
+		if len(owner) > 0 && !fi.isFrozenForOwner(owner[0]) {
 			return ""
 		}
 
