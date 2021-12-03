@@ -16,6 +16,7 @@ const ownerFile = "OWNERS"
 
 func (bot *robot) hasPermission(
 	commenter string,
+	needCheckSig bool,
 	pr giteeclient.PRInfo,
 	cfg *botConfig,
 	log *logrus.Entry,
@@ -34,7 +35,7 @@ func (bot *robot) hasPermission(
 		return true, nil
 	}
 
-	if cfg.CheckPermissionBasedOnSigOwners {
+	if needCheckSig {
 		return bot.isOwnerOfSig(commenter, pr, cfg, log)
 	}
 

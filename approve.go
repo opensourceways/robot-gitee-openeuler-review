@@ -38,7 +38,7 @@ func (bot *robot) AddApprove(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 	pr := e.GetPRInfo()
 	commenter := e.GetCommenter()
 
-	v, err := bot.hasPermission(commenter, pr, cfg, log)
+	v, err := bot.hasPermission(commenter, false, pr, cfg, log)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (bot *robot) removeApprove(cfg *botConfig, e giteeclient.PRNoteEvent, log *
 	pr := e.GetPRInfo()
 	commenter := e.GetCommenter()
 
-	v, err := bot.hasPermission(commenter, pr, cfg, log)
+	v, err := bot.hasPermission(commenter, false, pr, cfg, log)
 	if err != nil {
 		return err
 	}
