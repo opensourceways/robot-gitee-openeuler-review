@@ -58,6 +58,8 @@ func (bot *robot) tryMerge(e giteeclient.PRNoteEvent, cfg *botConfig, addComment
 				),
 			)
 		}
+
+		return nil
 	}
 
 	return h.merge()
@@ -175,7 +177,7 @@ func (m *mergeHelper) getFreezeInfo(log *logrus.Entry) (*freezeItem, error) {
 func (m *mergeHelper) getFreezeContent(f freezeFile) (freezeContent, error) {
 	var fc freezeContent
 
-	c, err := m.cli.GetPathContent(f.Owner, f.Repo, f.Branch, f.Path)
+	c, err := m.cli.GetPathContent(f.Owner, f.Repo, f.Path, f.Branch)
 	if err != nil {
 		return fc, err
 	}
