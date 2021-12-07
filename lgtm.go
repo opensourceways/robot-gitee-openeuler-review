@@ -16,15 +16,15 @@ const (
 	labelLenLimit = 20
 	lgtmLabel     = "lgtm"
 
-	commentAddLGTMBySelf     = "***lgtm*** can not be added in your self-own pull request. :astonished:"
-	commentClearLabel        = `New code changes of pr are detected and remove these labels ***%s***. :flushed: `
-	noPermissionAddLgtmLabel = `Thanks for your review, ***%s***, your opinion is very important to us.:wave:
+	commentAddLGTMBySelf            = "***lgtm*** can not be added in your self-own pull request. :astonished:"
+	commentClearLabel               = `New code changes of pr are detected and remove these labels ***%s***. :flushed: `
+	commentNoPermissionForLgtmLabel = `Thanks for your review, ***%s***, your opinion is very important to us.:wave:
 The maintainers will consider your advice carefully.`
 	commentNoPermissionForLabel = `
 ***@%s*** has no permission to %s ***%s*** label in this pull request. :astonished:
 Please contact to the collaborators in this repository.`
-	labelAddSuccessMsg = `***%s*** was added to this pull request by: ***%s***. :wave: 
-**NOTE:**: If you find this pull request unmerged while all conditions meets, you are encouraged use command: "/check-pr" to try it again. :smile: `
+	commentAddLabel = `***%s*** was added to this pull request by: ***%s***. :wave: 
+**NOTE:** If this pull request is not merged while all conditions are met, comment "/check-pr" to try again. :smile: `
 )
 
 var (
@@ -64,7 +64,10 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 		return err
 	}
 	if !v {
-		return bot.cli.CreatePRComment(org, repo, number, fmt.Sprintf(noPermissionAddLgtmLabel, commenter))
+		return bot.cli.CreatePRComment(
+			org, repo, number,
+			fmt.Sprintf(commentNoPermissionForLgtmLabel, commenter),
+		)
 	}
 
 	label := genLGTMLabel(commenter, cfg.LgtmCountsRequired)
@@ -78,7 +81,9 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 		return err
 	}
 
-	err = bot.cli.CreatePRComment(org, repo, number, fmt.Sprintf(labelAddSuccessMsg, label, commenter))
+	err = bot.cli.CreatePRComment(
+		org, repo, number, fmt.Sprintf(commentAddLabel, label, commenter),
+		)
 	if err != nil {
 		return err
 	}
