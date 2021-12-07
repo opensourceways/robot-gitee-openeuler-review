@@ -25,6 +25,7 @@ The maintainers will consider your advice carefully.`
 Please contact to the collaborators in this repository.`
 	commentAddLabel = `***%s*** was added to this pull request by: ***%s***. :wave: 
 **NOTE:** If this pull request is not merged while all conditions are met, comment "/check-pr" to try again. :smile: `
+	commentRemovedLabel = `***%s*** was removed in this pull request by: ***%s***. :flushed: `
 )
 
 var (
@@ -83,9 +84,9 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 
 	err = bot.cli.CreatePRComment(
 		org, repo, number, fmt.Sprintf(commentAddLabel, label, commenter),
-		)
+	)
 	if err != nil {
-		return err
+		log.Error(err)
 	}
 
 	return bot.tryMerge(e, cfg, false, log)
@@ -106,9 +107,13 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 			))
 		}
 
-		return bot.cli.RemovePRLabel(
-			org, repo, number,
-			genLGTMLabel(commenter, cfg.LgtmCountsRequired),
+		l := genLGTMLabel(commenter, cfg.LgtmCountsRequired)
+		if err = bot.cli.RemovePRLabel(org, repo, number, l); err != nil {
+			return err
+		}
+
+		return bot.cli.CreatePRComment(
+			org, repo, number, fmt.Sprintf(commentRemovedLabel, l, commenter),
 		)
 	}
 
