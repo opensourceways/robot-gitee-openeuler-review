@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	sdk "gitee.com/openeuler/go-gitee/gitee"
 	"github.com/opensourceways/community-robot-lib/giteeclient"
@@ -34,4 +35,30 @@ func (bot *robot) checkReviewer(e *sdk.PullRequestEvent, cfg *botConfig) error {
 	pr := giteeclient.GetPRInfoByPREvent(e)
 
 	return bot.cli.CreatePRComment(pr.Org, pr.Repo, pr.Number, fmt.Sprintf(msgNotSetReviewer, pr.Author))
+}
+
+func (bot *robot) clearLabel(e *sdk.PullRequestEvent) error {
+	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionChangedSourceBranch {
+		return nil
+	}
+
+	pr := giteeclient.GetPRInfoByPREvent(e)
+	v := getLGTMLabelsOnPR(pr.Labels)
+
+	if pr.Labels.Has(approvedLabel) {
+		v = append(v, approvedLabel)
+	}
+
+	if len(v) > 0 {
+		if err := bot.cli.RemovePRLabels(pr.Org, pr.Repo, pr.Number, v); err != nil {
+			return err
+		}
+
+		return bot.cli.CreatePRComment(
+			pr.Org, pr.Repo, pr.Number,
+			fmt.Sprintf(commentClearLabel, strings.Join(v, ", ")),
+		)
+	}
+
+	return nil
 }

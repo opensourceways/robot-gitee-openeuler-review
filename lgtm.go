@@ -16,11 +16,15 @@ const (
 	labelLenLimit = 20
 	lgtmLabel     = "lgtm"
 
-	commentAddLGTMBySelf        = "***lgtm*** can not be added in your self-own pull request. :astonished:"
-	commentClearLabel           = `New code changes of pr are detected and remove these labels ***%s***. :flushed: `
+	commentAddLGTMBySelf     = "***lgtm*** can not be added in your self-own pull request. :astonished:"
+	commentClearLabel        = `New code changes of pr are detected and remove these labels ***%s***. :flushed: `
+	noPermissionAddLgtmLabel = `Thanks for your review, ***%s***, your opinion is very important to us.:wave:
+The maintainers will consider your advice carefully.`
 	commentNoPermissionForLabel = `
 ***@%s*** has no permission to %s ***%s*** label in this pull request. :astonished:
 Please contact to the collaborators in this repository.`
+	labelAddSuccessMsg = `***%s*** was added to this pull request by: ***%s***. :wave: 
+**NOTE:**: If you find this pull request unmerged while all conditions meets, you are encouraged use command: "/check-pr" to try it again. :smile: `
 )
 
 var (
@@ -60,9 +64,7 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 		return err
 	}
 	if !v {
-		return bot.cli.CreatePRComment(org, repo, number, fmt.Sprintf(
-			commentNoPermissionForLabel, commenter, "add", lgtmLabel,
-		))
+		return bot.cli.CreatePRComment(org, repo, number, fmt.Sprintf(noPermissionAddLgtmLabel, commenter))
 	}
 
 	label := genLGTMLabel(commenter, cfg.LgtmCountsRequired)
@@ -73,6 +75,11 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 	}
 
 	if err := bot.cli.AddPRLabel(org, repo, number, label); err != nil {
+		return err
+	}
+
+	err = bot.cli.CreatePRComment(org, repo, number, fmt.Sprintf(labelAddSuccessMsg, label, commenter))
+	if err != nil {
 		return err
 	}
 
@@ -121,27 +128,6 @@ func (bot *robot) createLabelIfNeed(org, repo, label string) error {
 	}
 
 	return bot.cli.CreateRepoLabel(org, repo, label, "")
-}
-
-func (bot *robot) clearLabel(e *sdk.PullRequestEvent) error {
-	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionChangedSourceBranch {
-		return nil
-	}
-
-	pr := giteeclient.GetPRInfoByPREvent(e)
-
-	if v := getLGTMLabelsOnPR(pr.Labels); len(v) > 0 {
-		if err := bot.cli.RemovePRLabels(pr.Org, pr.Repo, pr.Number, v); err != nil {
-			return err
-		}
-
-		return bot.cli.CreatePRComment(
-			pr.Org, pr.Repo, pr.Number,
-			fmt.Sprintf(commentClearLabel, strings.Join(v, ", ")),
-		)
-	}
-
-	return nil
 }
 
 func genLGTMLabel(commenter string, lgtmCount uint) string {

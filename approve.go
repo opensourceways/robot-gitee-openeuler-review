@@ -53,6 +53,11 @@ func (bot *robot) AddApprove(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 		return err
 	}
 
+	err = bot.cli.CreatePRComment(pr.Org, pr.Repo, pr.Number, fmt.Sprintf(labelAddSuccessMsg, approvedLabel, commenter))
+	if err != nil {
+		return err
+	}
+
 	return bot.tryMerge(e, cfg, false, log)
 }
 
