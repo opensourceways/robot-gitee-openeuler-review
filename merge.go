@@ -6,8 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	sdk "gitee.com/openeuler/go-gitee/gitee"
-	"github.com/opensourceways/community-robot-lib/giteeclient"
+	sdk "github.com/opensourceways/go-gitee/gitee"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -24,20 +23,18 @@ const (
 var regCheckPr = regexp.MustCompile(`(?mi)^/check-pr\s*$`)
 
 func (bot *robot) handleCheckPR(e *sdk.NoteEvent, cfg *botConfig, log *logrus.Entry) error {
-	ne := giteeclient.NewPRNoteEvent(e)
-
-	if !ne.IsPullRequest() ||
-		!ne.IsPROpen() ||
-		!ne.IsCreatingCommentEvent() ||
-		!regCheckPr.MatchString(ne.GetComment()) {
+	if !e.IsPullRequest() ||
+		!e.IsPROpen() ||
+		!e.IsCreatingCommentEvent() ||
+		!regCheckPr.MatchString(e.GetComment().GetBody()) {
 		return nil
 	}
 
-	return bot.tryMerge(ne, cfg, true, log)
+	return bot.tryMerge(e, cfg, true, log)
 }
 
-func (bot *robot) tryMerge(e giteeclient.PRNoteEvent, cfg *botConfig, addComment bool, log *logrus.Entry) error {
-	org, repo := e.GetOrgRep()
+func (bot *robot) tryMerge(e *sdk.NoteEvent, cfg *botConfig, addComment bool, log *logrus.Entry) error {
+	org, repo := e.GetOrgRepo()
 
 	h := mergeHelper{
 		cfg:     cfg,
@@ -66,12 +63,11 @@ func (bot *robot) tryMerge(e giteeclient.PRNoteEvent, cfg *botConfig, addComment
 }
 
 func (bot *robot) handleLabelUpdate(e *sdk.PullRequestEvent, cfg *botConfig, log *logrus.Entry) error {
-	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionUpdatedLabel {
+	if sdk.GetPullRequestAction(e) != sdk.PRActionUpdatedLabel {
 		return nil
 	}
 
-	org, repo := giteeclient.GetOwnerAndRepoByPREvent(e)
-
+	org, repo := e.GetOrgRepo()
 	h := mergeHelper{
 		cfg:  cfg,
 		org:  org,

@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	sdk "gitee.com/openeuler/go-gitee/gitee"
-	"github.com/opensourceways/community-robot-lib/giteeclient"
+	sdk "github.com/opensourceways/go-gitee/gitee"
 )
 
 const (
@@ -14,17 +13,17 @@ const (
 )
 
 func (bot *robot) doRetest(e *sdk.PullRequestEvent) error {
-	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionChangedSourceBranch {
+	if sdk.GetPullRequestAction(e) != sdk.PRActionChangedSourceBranch {
 		return nil
 	}
 
-	pr := giteeclient.GetPRInfoByPREvent(e)
+	org, repo := e.GetOrgRepo()
 
-	return bot.cli.CreatePRComment(pr.Org, pr.Repo, pr.Number, retestCommand)
+	return bot.cli.CreatePRComment(org, repo, e.GetPRNumber(), retestCommand)
 }
 
 func (bot *robot) checkReviewer(e *sdk.PullRequestEvent, cfg *botConfig) error {
-	if cfg.UnableCheckingReviewerForPR || giteeclient.GetPullRequestAction(e) != giteeclient.PRActionOpened {
+	if cfg.UnableCheckingReviewerForPR || sdk.GetPullRequestAction(e) != sdk.ActionOpen {
 		return nil
 	}
 
@@ -32,30 +31,36 @@ func (bot *robot) checkReviewer(e *sdk.PullRequestEvent, cfg *botConfig) error {
 		return nil
 	}
 
-	pr := giteeclient.GetPRInfoByPREvent(e)
+	org, repo := e.GetOrgRepo()
 
-	return bot.cli.CreatePRComment(pr.Org, pr.Repo, pr.Number, fmt.Sprintf(msgNotSetReviewer, pr.Author))
+	return bot.cli.CreatePRComment(
+		org, repo, e.GetPRNumber(),
+		fmt.Sprintf(msgNotSetReviewer, e.GetPRAuthor()),
+	)
 }
 
 func (bot *robot) clearLabel(e *sdk.PullRequestEvent) error {
-	if giteeclient.GetPullRequestAction(e) != giteeclient.PRActionChangedSourceBranch {
+	if sdk.GetPullRequestAction(e) != sdk.PRActionChangedSourceBranch {
 		return nil
 	}
 
-	pr := giteeclient.GetPRInfoByPREvent(e)
-	v := getLGTMLabelsOnPR(pr.Labels)
+	labels := e.GetPRLabelSet()
+	v := getLGTMLabelsOnPR(labels)
 
-	if pr.Labels.Has(approvedLabel) {
+	if labels.Has(approvedLabel) {
 		v = append(v, approvedLabel)
 	}
 
 	if len(v) > 0 {
-		if err := bot.cli.RemovePRLabels(pr.Org, pr.Repo, pr.Number, v); err != nil {
+		org, repo := e.GetOrgRepo()
+		number := e.GetPRNumber()
+
+		if err := bot.cli.RemovePRLabels(org, repo, number, v); err != nil {
 			return err
 		}
 
 		return bot.cli.CreatePRComment(
-			pr.Org, pr.Repo, pr.Number,
+			org, repo, number,
 			fmt.Sprintf(commentClearLabel, strings.Join(v, ", ")),
 		)
 	}

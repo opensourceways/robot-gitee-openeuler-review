@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/base64"
+	sdk "github.com/opensourceways/go-gitee/gitee"
 	"path/filepath"
 	"strings"
 
-	"github.com/opensourceways/community-robot-lib/giteeclient"
 	"github.com/opensourceways/repo-file-cache/models"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -15,14 +15,14 @@ import (
 const ownerFile = "OWNERS"
 
 func (bot *robot) hasPermission(
-	commenter string,
+	org, repo, commenter string,
 	needCheckSig bool,
-	pr giteeclient.PRInfo,
+	pr *sdk.PullRequestHook,
 	cfg *botConfig,
 	log *logrus.Entry,
 ) (bool, error) {
 	commenter = strings.ToLower(commenter)
-	p, err := bot.cli.GetUserPermissionsOfRepo(pr.Org, pr.Repo, commenter)
+	p, err := bot.cli.GetUserPermissionsOfRepo(org, repo, commenter)
 	if err != nil {
 		return false, err
 	}
@@ -31,27 +31,28 @@ func (bot *robot) hasPermission(
 		return true, nil
 	}
 
-	if bot.isRepoOwners(commenter, pr, log) {
+	if bot.isRepoOwners(org, repo, commenter, pr, log) {
 		return true, nil
 	}
 
 	if needCheckSig {
-		return bot.isOwnerOfSig(commenter, pr, cfg, log)
+		return bot.isOwnerOfSig(org, repo, commenter, pr, cfg, log)
 	}
 
 	return false, nil
 }
 
 func (bot *robot) isRepoOwners(
-	commenter string,
-	pr giteeclient.PRInfo,
+	org, repo, commenter string,
+	pr *sdk.PullRequestHook,
 	log *logrus.Entry,
 ) bool {
-	v, err := bot.cli.GetPathContent(pr.Org, pr.Repo, ownerFile, pr.BaseRef)
+	ref := pr.GetBase().GetRef()
+	v, err := bot.cli.GetPathContent(org, repo, ownerFile, ref)
 	if err != nil {
 		log.Errorf(
 			"get file:%s/%s/%s:%s, err:%s",
-			pr.Org, pr.Repo, pr.BaseRef, ownerFile, err.Error(),
+			org, repo, ref, ownerFile, err.Error(),
 		)
 		return false
 	}
@@ -61,12 +62,12 @@ func (bot *robot) isRepoOwners(
 }
 
 func (bot *robot) isOwnerOfSig(
-	commenter string,
-	pr giteeclient.PRInfo,
+	org, repo, commenter string,
+	pr *sdk.PullRequestHook,
 	cfg *botConfig,
 	log *logrus.Entry,
 ) (bool, error) {
-	changes, err := bot.cli.GetPullRequestChanges(pr.Org, pr.Repo, pr.Number)
+	changes, err := bot.cli.GetPullRequestChanges(org, repo, pr.GetNumber())
 	if err != nil || len(changes) == 0 {
 		return false, err
 	}
@@ -80,7 +81,7 @@ func (bot *robot) isOwnerOfSig(
 		pathes.Insert(filepath.Dir(file.Filename))
 	}
 
-	files, err := bot.getSigOwnerFiles(pr.Org, pr.Repo, pr.BaseRef, log)
+	files, err := bot.getSigOwnerFiles(org, repo, pr.GetBase().GetRef(), log)
 	if err != nil {
 		return false, err
 	}

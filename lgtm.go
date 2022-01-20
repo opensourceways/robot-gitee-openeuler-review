@@ -5,8 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	sdk "gitee.com/openeuler/go-gitee/gitee"
-	"github.com/opensourceways/community-robot-lib/giteeclient"
+	sdk "github.com/opensourceways/go-gitee/gitee"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -34,33 +33,35 @@ var (
 )
 
 func (bot *robot) handleLGTM(e *sdk.NoteEvent, cfg *botConfig, log *logrus.Entry) error {
-	ne := giteeclient.NewPRNoteEvent(e)
-
-	if !ne.IsPullRequest() || !ne.IsPROpen() || !ne.IsCreatingCommentEvent() {
+	if !e.IsPullRequest() || !e.IsPROpen() || !e.IsCreatingCommentEvent() {
 		return nil
 	}
 
-	if regAddLgtm.MatchString(ne.GetComment()) {
-		return bot.addLGTM(cfg, ne, log)
+	comment := e.GetComment().GetBody()
+
+	if regAddLgtm.MatchString(comment) {
+		return bot.addLGTM(cfg, e, log)
 	}
 
-	if regRemoveLgtm.MatchString(ne.GetComment()) {
-		return bot.removeLGTM(cfg, ne, log)
+	if regRemoveLgtm.MatchString(comment) {
+		return bot.removeLGTM(cfg, e, log)
 	}
 
 	return nil
 }
 
-func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {
-	pr := e.GetPRInfo()
-	org, repo, number := pr.Org, pr.Repo, pr.Number
-
+func (bot *robot) addLGTM(cfg *botConfig, e *sdk.NoteEvent, log *logrus.Entry) error {
+	org, repo := e.GetOrgRepo()
+	number := e.GetPRNumber()
 	commenter := e.GetCommenter()
-	if pr.Author == commenter {
+
+	if e.GetPRAuthor() == commenter {
 		return bot.cli.CreatePRComment(org, repo, number, commentAddLGTMBySelf)
 	}
 
-	v, err := bot.hasPermission(commenter, cfg.CheckPermissionBasedOnSigOwners, pr, cfg, log)
+	v, err := bot.hasPermission(
+		org, repo, commenter, cfg.CheckPermissionBasedOnSigOwners, e.GetPullRequest(), cfg, log,
+	)
 	if err != nil {
 		return err
 	}
@@ -92,12 +93,14 @@ func (bot *robot) addLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus
 	return bot.tryMerge(e, cfg, false, log)
 }
 
-func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *logrus.Entry) error {
-	pr := e.GetPRInfo()
-	org, repo, number := pr.Org, pr.Repo, pr.Number
+func (bot *robot) removeLGTM(cfg *botConfig, e *sdk.NoteEvent, log *logrus.Entry) error {
+	org, repo := e.GetOrgRepo()
+	number := e.GetPRNumber()
 
-	if commenter := e.GetCommenter(); pr.Author != commenter {
-		v, err := bot.hasPermission(commenter, cfg.CheckPermissionBasedOnSigOwners, pr, cfg, log)
+	if commenter := e.GetCommenter(); e.GetPRAuthor() != commenter {
+		v, err := bot.hasPermission(
+			org, repo, commenter, cfg.CheckPermissionBasedOnSigOwners, e.GetPullRequest(), cfg, log,
+		)
 		if err != nil {
 			return err
 		}
@@ -118,7 +121,7 @@ func (bot *robot) removeLGTM(cfg *botConfig, e giteeclient.PRNoteEvent, log *log
 	}
 
 	// the author of pr can remove all of lgtm[-login name] kind labels
-	if v := getLGTMLabelsOnPR(pr.Labels); len(v) > 0 {
+	if v := getLGTMLabelsOnPR(e.GetIssueLabelSet()); len(v) > 0 {
 		return bot.cli.RemovePRLabels(org, repo, number, v)
 	}
 
