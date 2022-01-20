@@ -2,10 +2,10 @@ package main
 
 import (
 	"encoding/base64"
-	sdk "github.com/opensourceways/go-gitee/gitee"
 	"path/filepath"
 	"strings"
 
+	sdk "github.com/opensourceways/go-gitee/gitee"
 	"github.com/opensourceways/repo-file-cache/models"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/sets"
