@@ -122,12 +122,7 @@ func (m *mergeHelper) canMerge(log *logrus.Entry) ([]string, bool) {
 		return []string{msgPRConflicts}, false
 	}
 
-	labels := sets.NewString()
-	for _, item := range m.pr.Labels {
-		labels.Insert(item.Name)
-	}
-
-	if r := isLabelMatched(labels, m.cfg); len(r) > 0 {
+	if r := isLabelMatched(m.getPRLabels(), m.cfg); len(r) > 0 {
 		return r, false
 	}
 
@@ -186,6 +181,24 @@ func (m *mergeHelper) getFreezeContent(f freezeFile) (freezeContent, error) {
 	err = yaml.Unmarshal(b, &fc)
 
 	return fc, err
+}
+
+func (m *mergeHelper) getPRLabels() sets.String {
+	if m.trigger == "" {
+		return m.pr.LabelsToSet()
+	}
+
+	prLabels, err := m.cli.GetPRLabels(m.org, m.repo, m.pr.GetNumber())
+	if err != nil {
+		return m.pr.LabelsToSet()
+	}
+
+	labels := sets.NewString()
+	for _, v := range prLabels {
+		labels.Insert(v.Name)
+	}
+
+	return labels
 }
 
 func isLabelMatched(labels sets.String, cfg *botConfig) []string {
