@@ -121,7 +121,7 @@ func (bot *robot) removeLGTM(cfg *botConfig, e *sdk.NoteEvent, log *logrus.Entry
 	}
 
 	// the author of pr can remove all of lgtm[-login name] kind labels
-	if v := getLGTMLabelsOnPR(e.GetIssueLabelSet()); len(v) > 0 {
+	if v := getLGTMLabelsOnPR(e.GetPRLabelSet()); len(v) > 0 {
 		return bot.cli.RemovePRLabels(org, repo, number, v)
 	}
 
