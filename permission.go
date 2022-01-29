@@ -31,34 +31,11 @@ func (bot *robot) hasPermission(
 		return true, nil
 	}
 
-	if bot.isRepoOwners(org, repo, commenter, pr, log) {
-		return true, nil
-	}
-
 	if needCheckSig {
 		return bot.isOwnerOfSig(org, repo, commenter, pr, cfg, log)
 	}
 
 	return false, nil
-}
-
-func (bot *robot) isRepoOwners(
-	org, repo, commenter string,
-	pr *sdk.PullRequestHook,
-	log *logrus.Entry,
-) bool {
-	ref := pr.GetBase().GetRef()
-	v, err := bot.cli.GetPathContent(org, repo, ownerFile, ref)
-	if err != nil {
-		log.Errorf(
-			"get file:%s/%s/%s:%s, err:%s",
-			org, repo, ref, ownerFile, err.Error(),
-		)
-		return false
-	}
-
-	o := decodeOwnerFile(v.Content, log)
-	return o.Has(commenter)
 }
 
 func (bot *robot) isOwnerOfSig(
@@ -74,7 +51,7 @@ func (bot *robot) isOwnerOfSig(
 
 	pathes := sets.NewString()
 	for _, file := range changes {
-		if !cfg.regSigDir.MatchString(file.Filename) {
+		if cfg.regSigDir.MatchString(file.Filename) {
 			return false, nil
 		}
 
